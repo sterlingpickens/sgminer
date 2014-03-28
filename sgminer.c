@@ -5994,9 +5994,13 @@ static void rebuild_nonce(struct work *work, uint32_t nonce)
 {
 	uint32_t *work_nonce = (uint32_t *)(work->data + 64 + 12);
 
-	*work_nonce = htole32(nonce);
+	if (opt_scrypt_jane) {
+		*work_nonce = htobe32(nonce);
+	} else {
+		*work_nonce = htole32(nonce);
+	}
 
-	scrypt_regenhash(work);
+	rebuild_hash(work);
 }
 
 /* For testing a nonce against diff 1 */
