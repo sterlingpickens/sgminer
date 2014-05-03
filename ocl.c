@@ -457,10 +457,10 @@ _clState *initCl(unsigned int gpu, char *name, size_t nameSize, algorithm_t *alg
 		cgpu->lookup_gap = 2;
 	}
 
-    if ((strcmp(cgpu->kernelname, "lsoc") == 0) && (cgpu->lookup_gap > 8)) {
-        applog(LOG_WARNING, "Kernel lsoc only supports lookup-gap 1 to 8 (currently %d), forcing 8.", cgpu->lookup_gap);
-        cgpu->lookup_gap = 8;
-    }
+	if ((strcmp(cgpu->kernelname, "lsoc") == 0) && (cgpu->lookup_gap > 8)) {
+		applog(LOG_WARNING, "Kernel lsoc only supports lookup-gap 1 to 8 (currently %d), forcing 8.", cgpu->lookup_gap);
+		cgpu->lookup_gap = 8;
+	}
 
 	if (!cgpu->opt_tc) {
 		unsigned int sixtyfours;
