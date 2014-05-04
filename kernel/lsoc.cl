@@ -27,7 +27,7 @@
  * This file was originally written by Colin Percival as part of the Tarsnap
  * online backup system.
  *
- * V1.1 modified by sterling pickens linuxsociety.org 2014
+ * V1.3 modified by sterling pickens linuxsociety.org 2014
  */
 
 /* N (nfactor), CPU/Memory cost parameter */
@@ -148,7 +148,7 @@ __constant uint K[] = {
 	0x5C5C5C5CU,
 	0x36363636U,
 	0x80000000U,
-	//0x000003FFU, //never used
+//	0x000003FFU, //never used
 	0x00000280U,
 	0x000004a0U,
 	0x00000300U
@@ -158,15 +158,15 @@ __constant uint K[] = {
 #define Ch(x,y,z) bitselect(z,y,x)
 #define Maj(x,y,z) Ch((x^z),y,z)
 
-#define EndianSwap(n) (rotl(n & ES[0], 24U)|rotl(n & ES[1], 8U))
-//#define EndianSwap(n) (Ch(ES[0], rotl(n, 8U), rotl(n, 24U)))
+#define EndianSwapa(n) (Ch(ES[0], rotl(n, 8U), rotl(n, 24U)))
+#define EndianSwapb(n) (rotl(n & ES[0], 24U)|rotl(n & ES[1], 8U))
 
 #define Tr2(x)		(rotl(x, 30U) ^ rotl(x, 19U) ^ rotl(x, 10U))
 #define Tr1(x)		(rotl(x, 26U) ^ rotl(x, 21U) ^ rotl(x, 7U))
 #define Wr2(x)		(rotl(x, 25U) ^ rotl(x, 14U) ^ (x>>3U))
 #define Wr1(x)		(rotl(x, 15U) ^ rotl(x, 13U) ^ (x>>10U))
 
-#define RND(a, b, c, d, e, f, g, h, k)	\
+#define RND(a, b, c, d, e, f, g, h, k)  \
 	h += Tr1(e); 			\
 	h += Ch(e, f, g); 		\
 	h += k;				\
@@ -174,7 +174,7 @@ __constant uint K[] = {
 	h += Tr2(a); 			\
 	h += Maj(a, b, c);
 
-void SHA256(uint4*restrict state0,uint4*restrict state1, const uint4 block0, const uint4 block1, const uint4 block2, const uint4 block3, bool fresh)
+void SHA256(uint4*restrict state0,uint4*restrict state1, const uint4 block0, const uint4 block1, const uint4 block2, const uint4 block3, bool notfresh)
 {
 	uint4 S0 = *state0;
 	uint4 S1 = *state1;
@@ -188,168 +188,148 @@ void SHA256(uint4*restrict state0,uint4*restrict state1, const uint4 block0, con
 #define G S1.z
 #define H S1.w
 
-	uint4 W[4];
+    uint4 W = block0;
+    uint4 X = block1;
+    uint4 Y = block2;
+    uint4 Z = block3;
 
-	if(fresh){
-		W[0].x = block0.x;
-		D= K[63] +W[0].x;
-		H= K[64] +W[0].x;
-
-		W[0].y = block0.y;
-		C= K[65] +Tr1(D)+Ch(D, K[66], K[67])+W[0].y;
-		G= K[68] +C+Tr2(H)+Ch(H, K[69] ,K[70]);
-
-		W[0].z = block0.z;
-		B= K[71] +Tr1(C)+Ch(C,D,K[66])+W[0].z;
-		F= K[72] +B+Tr2(G)+Maj(G,H, K[73]);
-
-		W[0].w = block0.w;
-		A= K[74] +Tr1(B)+Ch(B,C,D)+W[0].w;
-		E= K[75] +A+Tr2(F)+Maj(F,G,H);
+	if(notfresh){
+		RND(A,B,C,D,E,F,G,H, W.x+ K[0]);
+		RND(H,A,B,C,D,E,F,G, W.y+ K[1]);
+		RND(G,H,A,B,C,D,E,F, W.z+ K[2]);
+		RND(F,G,H,A,B,C,D,E, W.w+ K[3]);
 	}else{
-		W[ 0].x = block0.x;
-		RND(A,B,C,D,E,F,G,H, W[0].x+ K[0]);
-		W[ 0].y = block0.y;
-		RND(H,A,B,C,D,E,F,G, W[0].y+ K[1]);
-		W[ 0].z = block0.z;
-		RND(G,H,A,B,C,D,E,F, W[0].z+ K[2]);
-		W[ 0].w = block0.w;
-		RND(F,G,H,A,B,C,D,E, W[0].w+ K[3]);
+		D= K[63] +W.x;
+		H= K[64] +W.x;
+		C= K[65] +Tr1(D)+Ch(D, K[66], K[67])+W.y;
+		G= K[68] +C+Tr2(H)+Ch(H, K[69] ,K[70]);
+		B= K[71] +Tr1(C)+Ch(C,D,K[66])+W.z;
+		F= K[72] +B+Tr2(G)+Maj(G,H, K[73]);
+		A= K[74] +Tr1(B)+Ch(B,C,D)+W.w;
+		E= K[75] +A+Tr2(F)+Maj(F,G,H);
 	}
-	W[ 1].x = block1.x;
-	RND(E,F,G,H,A,B,C,D, W[1].x+ K[4]);
-	W[ 1].y = block1.y;
-	RND(D,E,F,G,H,A,B,C, W[1].y+ K[5]);
-	W[ 1].z = block1.z;
-	RND(C,D,E,F,G,H,A,B, W[1].z+ K[6]);
-	W[ 1].w = block1.w;
-	RND(B,C,D,E,F,G,H,A, W[1].w+ K[7]);
+	RND(E,F,G,H,A,B,C,D, X.x+ K[4]);
+	RND(D,E,F,G,H,A,B,C, X.y+ K[5]);
+	RND(C,D,E,F,G,H,A,B, X.z+ K[6]);
+	RND(B,C,D,E,F,G,H,A, X.w+ K[7]);
 
-	W[ 2].x = block2.x;
-	RND(A,B,C,D,E,F,G,H, W[2].x+ K[8]);
-	W[ 2].y = block2.y;
-	RND(H,A,B,C,D,E,F,G, W[2].y+ K[9]);
-	W[ 2].z = block2.z;
-	RND(G,H,A,B,C,D,E,F, W[2].z+ K[10]);
-	W[ 2].w = block2.w;
-	RND(F,G,H,A,B,C,D,E, W[2].w+ K[11]);
+	RND(A,B,C,D,E,F,G,H, Y.x+ K[8]);
+	RND(H,A,B,C,D,E,F,G, Y.y+ K[9]);
+	RND(G,H,A,B,C,D,E,F, Y.z+ K[10]);
+	RND(F,G,H,A,B,C,D,E, Y.w+ K[11]);
 
-	W[ 3].x = block3.x;
-	RND(E,F,G,H,A,B,C,D, W[3].x+ K[12]);
-	W[ 3].y = block3.y;
-	RND(D,E,F,G,H,A,B,C, W[3].y+ K[13]);
-	W[ 3].z = block3.z;
-	RND(C,D,E,F,G,H,A,B, W[3].z+ K[14]);
-	W[ 3].w = block3.w;
-	RND(B,C,D,E,F,G,H,A, W[3].w+ K[76]);
+	RND(E,F,G,H,A,B,C,D, Z.x+ K[12]);
+	RND(D,E,F,G,H,A,B,C, Z.y+ K[13]);
+	RND(C,D,E,F,G,H,A,B, Z.z+ K[14]);
+	RND(B,C,D,E,F,G,H,A, Z.w+ K[76]);
 
-	W[ 0].x += Wr1(W[ 3].z) + W[ 2].y + Wr2(W[ 0].y);
-	RND(A,B,C,D,E,F,G,H, W[0].x+ K[15]);
-	W[ 0].y += Wr1(W[ 3].w) + W[ 2].z + Wr2(W[ 0].z);
-	RND(H,A,B,C,D,E,F,G, W[0].y+ K[16]);
-	W[ 0].z += Wr1(W[ 0].x) + W[ 2].w + Wr2(W[ 0].w);
-	RND(G,H,A,B,C,D,E,F, W[0].z+ K[17]);
-	W[ 0].w += Wr1(W[ 0].y) + W[ 3].x + Wr2(W[ 1].x);
-	RND(F,G,H,A,B,C,D,E, W[0].w+ K[18]);
+	W.x += Wr1(Z.z) + Y.y + Wr2(W.y);
+	RND(A,B,C,D,E,F,G,H, W.x+ K[15]);
+	W.y += Wr1(Z.w) + Y.z + Wr2(W.z);
+	RND(H,A,B,C,D,E,F,G, W.y+ K[16]);
+	W.z += Wr1(W.x) + Y.w + Wr2(W.w);
+	RND(G,H,A,B,C,D,E,F, W.z+ K[17]);
+	W.w += Wr1(W.y) + Z.x + Wr2(X.x);
+	RND(F,G,H,A,B,C,D,E, W.w+ K[18]);
 
-	W[ 1].x += Wr1(W[ 0].z) + W[ 3].y + Wr2(W[ 1].y);
-	RND(E,F,G,H,A,B,C,D, W[1].x+ K[19]);
-	W[ 1].y += Wr1(W[ 0].w) + W[ 3].z + Wr2(W[ 1].z);
-	RND(D,E,F,G,H,A,B,C, W[1].y+ K[20]);
-	W[ 1].z += Wr1(W[ 1].x) + W[ 3].w + Wr2(W[ 1].w);
-	RND(C,D,E,F,G,H,A,B, W[1].z+ K[21]);
-	W[ 1].w += Wr1(W[ 1].y) + W[ 0].x + Wr2(W[ 2].x);
-	RND(B,C,D,E,F,G,H,A, W[1].w+ K[22]);
+	X.x += Wr1(W.z) + Z.y + Wr2(X.y);
+	RND(E,F,G,H,A,B,C,D, X.x+ K[19]);
+	X.y += Wr1(W.w) + Z.z + Wr2(X.z);
+	RND(D,E,F,G,H,A,B,C, X.y+ K[20]);
+	X.z += Wr1(X.x) + Z.w + Wr2(X.w);
+	RND(C,D,E,F,G,H,A,B, X.z+ K[21]);
+	X.w += Wr1(X.y) + W.x + Wr2(Y.x);
+	RND(B,C,D,E,F,G,H,A, X.w+ K[22]);
 
-	W[ 2].x += Wr1(W[ 1].z) + W[ 0].y + Wr2(W[ 2].y);
-	RND(A,B,C,D,E,F,G,H, W[2].x+ K[23]);
-	W[ 2].y += Wr1(W[ 1].w) + W[ 0].z + Wr2(W[ 2].z);
-	RND(H,A,B,C,D,E,F,G, W[2].y+ K[24]);
-	W[ 2].z += Wr1(W[ 2].x) + W[ 0].w + Wr2(W[ 2].w);
-	RND(G,H,A,B,C,D,E,F, W[2].z+ K[25]);
-	W[ 2].w += Wr1(W[ 2].y) + W[ 1].x + Wr2(W[ 3].x);
-	RND(F,G,H,A,B,C,D,E, W[2].w+ K[26]);
+	Y.x += Wr1(X.z) + W.y + Wr2(Y.y);
+	RND(A,B,C,D,E,F,G,H, Y.x+ K[23]);
+	Y.y += Wr1(X.w) + W.z + Wr2(Y.z);
+	RND(H,A,B,C,D,E,F,G, Y.y+ K[24]);
+	Y.z += Wr1(Y.x) + W.w + Wr2(Y.w);
+	RND(G,H,A,B,C,D,E,F, Y.z+ K[25]);
+	Y.w += Wr1(Y.y) + X.x + Wr2(Z.x);
+	RND(F,G,H,A,B,C,D,E, Y.w+ K[26]);
 
-	W[ 3].x += Wr1(W[ 2].z) + W[ 1].y + Wr2(W[ 3].y);
-	RND(E,F,G,H,A,B,C,D, W[3].x+ K[27]);
-	W[ 3].y += Wr1(W[ 2].w) + W[ 1].z + Wr2(W[ 3].z);
-	RND(D,E,F,G,H,A,B,C, W[3].y+ K[28]);
-	W[ 3].z += Wr1(W[ 3].x) + W[ 1].w + Wr2(W[ 3].w);
-	RND(C,D,E,F,G,H,A,B, W[3].z+ K[29]);
-	W[ 3].w += Wr1(W[ 3].y) + W[ 2].x + Wr2(W[ 0].x);
-	RND(B,C,D,E,F,G,H,A, W[3].w+ K[30]);
+	Z.x += Wr1(Y.z) + X.y + Wr2(Z.y);
+	RND(E,F,G,H,A,B,C,D, Z.x+ K[27]);
+	Z.y += Wr1(Y.w) + X.z + Wr2(Z.z);
+	RND(D,E,F,G,H,A,B,C, Z.y+ K[28]);
+	Z.z += Wr1(Z.x) + X.w + Wr2(Z.w);
+	RND(C,D,E,F,G,H,A,B, Z.z+ K[29]);
+	Z.w += Wr1(Z.y) + Y.x + Wr2(W.x);
+	RND(B,C,D,E,F,G,H,A, Z.w+ K[30]);
 
-	W[ 0].x += Wr1(W[ 3].z) + W[ 2].y + Wr2(W[ 0].y);
-	RND(A,B,C,D,E,F,G,H, W[0].x+ K[31]);
-	W[ 0].y += Wr1(W[ 3].w) + W[ 2].z + Wr2(W[ 0].z);
-	RND(H,A,B,C,D,E,F,G, W[0].y+ K[32]);
-	W[ 0].z += Wr1(W[ 0].x) + W[ 2].w + Wr2(W[ 0].w);
-	RND(G,H,A,B,C,D,E,F, W[0].z+ K[33]);
-	W[ 0].w += Wr1(W[ 0].y) + W[ 3].x + Wr2(W[ 1].x);
-	RND(F,G,H,A,B,C,D,E, W[0].w+ K[34]);
+	W.x += Wr1(Z.z) + Y.y + Wr2(W.y);
+	RND(A,B,C,D,E,F,G,H, W.x+ K[31]);
+	W.y += Wr1(Z.w) + Y.z + Wr2(W.z);
+	RND(H,A,B,C,D,E,F,G, W.y+ K[32]);
+	W.z += Wr1(W.x) + Y.w + Wr2(W.w);
+	RND(G,H,A,B,C,D,E,F, W.z+ K[33]);
+	W.w += Wr1(W.y) + Z.x + Wr2(X.x);
+	RND(F,G,H,A,B,C,D,E, W.w+ K[34]);
 
-	W[ 1].x += Wr1(W[ 0].z) + W[ 3].y + Wr2(W[ 1].y);
-	RND(E,F,G,H,A,B,C,D, W[1].x+ K[35]);
-	W[ 1].y += Wr1(W[ 0].w) + W[ 3].z + Wr2(W[ 1].z);
-	RND(D,E,F,G,H,A,B,C, W[1].y+ K[36]);
-	W[ 1].z += Wr1(W[ 1].x) + W[ 3].w + Wr2(W[ 1].w);
-	RND(C,D,E,F,G,H,A,B, W[1].z+ K[37]);
-	W[ 1].w += Wr1(W[ 1].y) + W[ 0].x + Wr2(W[ 2].x);
-	RND(B,C,D,E,F,G,H,A, W[1].w+ K[38]);
+	X.x += Wr1(W.z) + Z.y + Wr2(X.y);
+	RND(E,F,G,H,A,B,C,D, X.x+ K[35]);
+	X.y += Wr1(W.w) + Z.z + Wr2(X.z);
+	RND(D,E,F,G,H,A,B,C, X.y+ K[36]);
+	X.z += Wr1(X.x) + Z.w + Wr2(X.w);
+	RND(C,D,E,F,G,H,A,B, X.z+ K[37]);
+	X.w += Wr1(X.y) + W.x + Wr2(Y.x);
+	RND(B,C,D,E,F,G,H,A, X.w+ K[38]);
 
-	W[ 2].x += Wr1(W[ 1].z) + W[ 0].y + Wr2(W[ 2].y);
-	RND(A,B,C,D,E,F,G,H, W[2].x+ K[39]);
-	W[ 2].y += Wr1(W[ 1].w) + W[ 0].z + Wr2(W[ 2].z);
-	RND(H,A,B,C,D,E,F,G, W[2].y+ K[40]);
-	W[ 2].z += Wr1(W[ 2].x) + W[ 0].w + Wr2(W[ 2].w);
-	RND(G,H,A,B,C,D,E,F, W[2].z+ K[41]);
-	W[ 2].w += Wr1(W[ 2].y) + W[ 1].x + Wr2(W[ 3].x);
-	RND(F,G,H,A,B,C,D,E, W[2].w+ K[42]);
+	Y.x += Wr1(X.z) + W.y + Wr2(Y.y);
+	RND(A,B,C,D,E,F,G,H, Y.x+ K[39]);
+	Y.y += Wr1(X.w) + W.z + Wr2(Y.z);
+	RND(H,A,B,C,D,E,F,G, Y.y+ K[40]);
+	Y.z += Wr1(Y.x) + W.w + Wr2(Y.w);
+	RND(G,H,A,B,C,D,E,F, Y.z+ K[41]);
+	Y.w += Wr1(Y.y) + X.x + Wr2(Z.x);
+	RND(F,G,H,A,B,C,D,E, Y.w+ K[42]);
 
-	W[ 3].x += Wr1(W[ 2].z) + W[ 1].y + Wr2(W[ 3].y);
-	RND(E,F,G,H,A,B,C,D, W[3].x+ K[43]);
-	W[ 3].y += Wr1(W[ 2].w) + W[ 1].z + Wr2(W[ 3].z);
-	RND(D,E,F,G,H,A,B,C, W[3].y+ K[44]);
-	W[ 3].z += Wr1(W[ 3].x) + W[ 1].w + Wr2(W[ 3].w);
-	RND(C,D,E,F,G,H,A,B, W[3].z+ K[45]);
-	W[ 3].w += Wr1(W[ 3].y) + W[ 2].x + Wr2(W[ 0].x);
-	RND(B,C,D,E,F,G,H,A, W[3].w+ K[46]);
+	Z.x += Wr1(Y.z) + X.y + Wr2(Z.y);
+	RND(E,F,G,H,A,B,C,D, Z.x+ K[43]);
+	Z.y += Wr1(Y.w) + X.z + Wr2(Z.z);
+	RND(D,E,F,G,H,A,B,C, Z.y+ K[44]);
+	Z.z += Wr1(Z.x) + X.w + Wr2(Z.w);
+	RND(C,D,E,F,G,H,A,B, Z.z+ K[45]);
+	Z.w += Wr1(Z.y) + Y.x + Wr2(W.x);
+	RND(B,C,D,E,F,G,H,A, Z.w+ K[46]);
 
-	W[ 0].x += Wr1(W[ 3].z) + W[ 2].y + Wr2(W[ 0].y);
-	RND(A,B,C,D,E,F,G,H, W[0].x+ K[47]);
-	W[ 0].y += Wr1(W[ 3].w) + W[ 2].z + Wr2(W[ 0].z);
-	RND(H,A,B,C,D,E,F,G, W[0].y+ K[48]);
-	W[ 0].z += Wr1(W[ 0].x) + W[ 2].w + Wr2(W[ 0].w);
-	RND(G,H,A,B,C,D,E,F, W[0].z+ K[49]);
-	W[ 0].w += Wr1(W[ 0].y) + W[ 3].x + Wr2(W[ 1].x);
-	RND(F,G,H,A,B,C,D,E, W[0].w+ K[50]);
+	W.x += Wr1(Z.z) + Y.y + Wr2(W.y);
+	RND(A,B,C,D,E,F,G,H, W.x+ K[47]);
+	W.y += Wr1(Z.w) + Y.z + Wr2(W.z);
+	RND(H,A,B,C,D,E,F,G, W.y+ K[48]);
+	W.z += Wr1(W.x) + Y.w + Wr2(W.w);
+	RND(G,H,A,B,C,D,E,F, W.z+ K[49]);
+	W.w += Wr1(W.y) + Z.x + Wr2(X.x);
+	RND(F,G,H,A,B,C,D,E, W.w+ K[50]);
 
-	W[ 1].x += Wr1(W[ 0].z) + W[ 3].y + Wr2(W[ 1].y);
-	RND(E,F,G,H,A,B,C,D, W[1].x+ K[51]);
-	W[ 1].y += Wr1(W[ 0].w) + W[ 3].z + Wr2(W[ 1].z);
-	RND(D,E,F,G,H,A,B,C, W[1].y+ K[52]);
-	W[ 1].z += Wr1(W[ 1].x) + W[ 3].w + Wr2(W[ 1].w);
-	RND(C,D,E,F,G,H,A,B, W[1].z+ K[53]);
-	W[ 1].w += Wr1(W[ 1].y) + W[ 0].x + Wr2(W[ 2].x);
-	RND(B,C,D,E,F,G,H,A, W[1].w+ K[54]);
+	X.x += Wr1(W.z) + Z.y + Wr2(X.y);
+	RND(E,F,G,H,A,B,C,D, X.x+ K[51]);
+	X.y += Wr1(W.w) + Z.z + Wr2(X.z);
+	RND(D,E,F,G,H,A,B,C, X.y+ K[52]);
+	X.z += Wr1(X.x) + Z.w + Wr2(X.w);
+	RND(C,D,E,F,G,H,A,B, X.z+ K[53]);
+	X.w += Wr1(X.y) + W.x + Wr2(Y.x);
+	RND(B,C,D,E,F,G,H,A, X.w+ K[54]);
 
-	W[ 2].x += Wr1(W[ 1].z) + W[ 0].y + Wr2(W[ 2].y);
-	RND(A,B,C,D,E,F,G,H, W[2].x+ K[55]);
-	W[ 2].y += Wr1(W[ 1].w) + W[ 0].z + Wr2(W[ 2].z);
-	RND(H,A,B,C,D,E,F,G, W[2].y+ K[56]);
-	W[ 2].z += Wr1(W[ 2].x) + W[ 0].w + Wr2(W[ 2].w);
-	RND(G,H,A,B,C,D,E,F, W[2].z+ K[57]);
-	W[ 2].w += Wr1(W[ 2].y) + W[ 1].x + Wr2(W[ 3].x);
-	RND(F,G,H,A,B,C,D,E, W[2].w+ K[58]);
+	Y.x += Wr1(X.z) + W.y + Wr2(Y.y);
+	RND(A,B,C,D,E,F,G,H, Y.x+ K[55]);
+	Y.y += Wr1(X.w) + W.z + Wr2(Y.z);
+	RND(H,A,B,C,D,E,F,G, Y.y+ K[56]);
+	Y.z += Wr1(Y.x) + W.w + Wr2(Y.w);
+	RND(G,H,A,B,C,D,E,F, Y.z+ K[57]);
+	Y.w += Wr1(Y.y) + X.x + Wr2(Z.x);
+	RND(F,G,H,A,B,C,D,E, Y.w+ K[58]);
 
-	W[ 3].x += Wr1(W[ 2].z) + W[ 1].y + Wr2(W[ 3].y);
-	RND(E,F,G,H,A,B,C,D, W[3].x+ K[59]);
-	W[ 3].y += Wr1(W[ 2].w) + W[ 1].z + Wr2(W[ 3].z);
-	RND(D,E,F,G,H,A,B,C, W[3].y+ K[60]);
-	W[ 3].z += Wr1(W[ 3].x) + W[ 1].w + Wr2(W[ 3].w);
-	RND(C,D,E,F,G,H,A,B, W[3].z+ K[61]);
-	W[ 3].w += Wr1(W[ 3].y) + W[ 2].x + Wr2(W[ 0].x);
-	RND(B,C,D,E,F,G,H,A, W[3].w+ K[62]);
+	Z.x += Wr1(Y.z) + X.y + Wr2(Z.y);
+	RND(E,F,G,H,A,B,C,D, Z.x+ K[59]);
+	Z.y += Wr1(Y.w) + X.z + Wr2(Z.z);
+	RND(D,E,F,G,H,A,B,C, Z.y+ K[60]);
+	Z.z += Wr1(Z.x) + X.w + Wr2(Z.w);
+	RND(C,D,E,F,G,H,A,B, Z.z+ K[61]);
+	Z.w += Wr1(Z.y) + Y.x + Wr2(W.x);
+	RND(B,C,D,E,F,G,H,A, Z.w+ K[62]);
 	
 #undef A
 #undef B
@@ -360,61 +340,15 @@ void SHA256(uint4*restrict state0,uint4*restrict state1, const uint4 block0, con
 #undef G
 #undef H
 
-	if(fresh){
+	if(notfresh){
+		*state0 += S0;
+		*state1 += S1;
+	}else{
 		S0 += (uint4)(K[73], K[77], K[78], K[79]);
 		S1 += (uint4)(K[66], K[67], K[80], K[81]);
 		*state0 = S0;
 		*state1 = S1;
-	}else{
-		*state0 += S0;
-		*state1 += S1;
 	}
-}
-
-__constant uint fixedWa[8] = {0x428a2f99,0xd807aa98,0xf59b89c2,0xb707775c,0xad87a3ea,0xc91b1417,0xe64fb6a2,0xe0a1adbe};
-__constant uint fixedWb[8] = {0xf1374491,0x12835b01,0x73924787,0x0468c23f,0xbcb1d3a3,0xc359dce1,0xe84d923a,0x7c728e11};
-__constant uint fixedWc[8] = {0xb5c0fbcf,0x243185be,0x23c6886e,0xe7e72b4c,0x7b993186,0xa83253a7,0xe93a5730,0x511c78e4};
-__constant uint fixedWd[8] = {0xe9b5dba5,0x550c7dc3,0xa42ca65c,0x49e1f1a2,0x562b9420,0x3b13c12d,0x09837686,0x315b45bd};
-__constant uint fixedWe[8] = {0x3956c25b,0x72be5d74,0x15ed3627,0x4b99c816,0xbff3ca0c,0x9d3d725d,0x078ff753,0xfca71413};
-__constant uint fixedWf[8] = {0x59f111f1,0x80deb1fe,0x4d6edcbf,0x926d1570,0xda4b0c23,0xd9031a84,0x29833341,0xea28f96a};
-__constant uint fixedWg[8] = {0x923f82a4,0x9bdc06a7,0xe28217fc,0xaa0fc072,0x6cd8711a,0xb1a03340,0xd5de0b7e,0x79703128};
-__constant uint fixedWh[8] = {0xab1c5ed5,0xc19bf794,0xef02488f,0xadb36e2c,0x8f337caa,0x16f58012,0x6948ccf4,0x4e1ef848};
-
-void SHA256_fixed(uint4*restrict state0,uint4*restrict state1)
-{
-	uint4 S0 = *state0;
-	uint4 S1 = *state1;
-
-#define A S0.x
-#define B S0.y
-#define C S0.z
-#define D S0.w
-#define E S1.x
-#define F S1.y
-#define G S1.z
-#define H S1.w
-
-	for(uint i=0; i<8; i++){
-		RND(A,B,C,D,E,F,G,H, fixedWa[i]);
-		RND(H,A,B,C,D,E,F,G, fixedWb[i]);
-		RND(G,H,A,B,C,D,E,F, fixedWc[i]);
-		RND(F,G,H,A,B,C,D,E, fixedWd[i]);
-		RND(E,F,G,H,A,B,C,D, fixedWe[i]);
-		RND(D,E,F,G,H,A,B,C, fixedWf[i]);
-		RND(C,D,E,F,G,H,A,B, fixedWg[i]);
-		RND(B,C,D,E,F,G,H,A, fixedWh[i]);
-	}
-	
-#undef A
-#undef B
-#undef C
-#undef D
-#undef E
-#undef F
-#undef G
-#undef H
-	*state0 += S0;
-	*state1 += S1;
 }
 
 void halfsalsa(uint4 w[4])
@@ -436,7 +370,7 @@ void salsa(uint4 B[8], bool db){
 #else
 void salsa(uint4 B[8]){
 #endif
-	uint4 w[4];
+    uint4 w[4];
 
 	for(uint i=0; i<4; ++i)
 		w[i] = (B[i]^=B[i+4]);
@@ -467,6 +401,27 @@ void scrypt_core(uint4 X[8], __global uint4*restrict lookup)
 	const uint ySIZE = (N[NFACTOR]/LOOKUP_GAP+(N[NFACTOR]%LOOKUP_GAP>0));
 	const uint xSIZE = CONCURRENT_THREADS;
 	uint x = get_global_id(0)%xSIZE;
+	uint4 tmp[4];
+
+	tmp[0] = (uint4)(X[1].x,X[2].y,X[3].z,X[0].w);
+	tmp[1] = (uint4)(X[2].x,X[3].y,X[0].z,X[1].w);
+	tmp[2] = (uint4)(X[3].x,X[0].y,X[1].z,X[2].w);
+	tmp[3] = (uint4)(X[0].x,X[1].y,X[2].z,X[3].w);
+
+	X[0] = EndianSwapa(tmp[0]);
+	X[1] = EndianSwapb(tmp[1]);
+	X[2] = EndianSwapb(tmp[2]);
+	X[3] = EndianSwapb(tmp[3]);
+
+	tmp[0] = (uint4)(X[5].x,X[6].y,X[7].z,X[4].w);
+	tmp[1] = (uint4)(X[6].x,X[7].y,X[4].z,X[5].w);
+	tmp[2] = (uint4)(X[7].x,X[4].y,X[5].z,X[6].w);
+	tmp[3] = (uint4)(X[4].x,X[5].y,X[6].z,X[7].w);
+
+	X[4] = EndianSwapa(tmp[0]);
+	X[5] = EndianSwapb(tmp[1]);
+	X[6] = EndianSwapb(tmp[2]);
+	X[7] = EndianSwapb(tmp[3]);
 
 	for(uint y=0; y<(N[NFACTOR]/LOOKUP_GAP); ++y)
 	{
@@ -484,24 +439,26 @@ void scrypt_core(uint4 X[8], __global uint4*restrict lookup)
 #endif
 	}
 #if (LOOKUP_GAP != 1) && (LOOKUP_GAP != 2) && (LOOKUP_GAP != 4) && (LOOKUP_GAP != 8)
-	{
-		uint y = (N[NFACTOR]/LOOKUP_GAP);
-		for(uint z=0; z<zSIZE; ++z)
-			lookup[CO] = X[z];
-		for(uint i=0; i<N[NFACTOR]%LOOKUP_GAP; ++i)
-			salsa(X);
-	}
+    {
+        uint y = (N[NFACTOR]/LOOKUP_GAP);
+        for(uint z=0; z<zSIZE; ++z)
+            lookup[CO] = X[z];
+        for(uint i=0; i<N[NFACTOR]%LOOKUP_GAP; ++i)
+            salsa(X);
+    }
 #endif
 
 #if (LOOKUP_GAP != 1)
-	for (uint i=0; i<N[NFACTOR]; ++i){
-		uint j = X[7].x & (N[NFACTOR]-1);
+    for (uint i=0; i<N[NFACTOR]; ++i)
+    {
+        uint j = X[7].x & (N[NFACTOR]-1);
 #else
 	for (uint i=0; i<N[NFACTOR]; ++i){
 		uint y = X[7].x & (N[NFACTOR]-1);
 #endif
 
 #if (LOOKUP_GAP == 1)
+		
 #elif (LOOKUP_GAP == 2)
 		uint y = (j>>1);
 #elif (LOOKUP_GAP == 4)
@@ -545,12 +502,41 @@ void scrypt_core(uint4 X[8], __global uint4*restrict lookup)
 #endif
 
 #if (LOOKUP_GAP == 2)
-		salsa(X, 0);
+        salsa(X, 0);
 #else
-		salsa(X);
+        salsa(X);
 #endif
-	}
+    }
+
+	tmp[0] = (uint4)(X[3].x,X[2].y,X[1].z,X[0].w);
+	tmp[1] = (uint4)(X[0].x,X[3].y,X[2].z,X[1].w);
+	tmp[2] = (uint4)(X[1].x,X[0].y,X[3].z,X[2].w);
+	tmp[3] = (uint4)(X[2].x,X[1].y,X[0].z,X[3].w);
+
+	X[0] = EndianSwapa(tmp[0]);
+	X[1] = EndianSwapb(tmp[1]);
+	X[2] = EndianSwapb(tmp[2]);
+	X[3] = EndianSwapb(tmp[3]);
+
+	tmp[0] = (uint4)(X[7].x,X[6].y,X[5].z,X[4].w);
+	tmp[1] = (uint4)(X[4].x,X[7].y,X[6].z,X[5].w);
+	tmp[2] = (uint4)(X[5].x,X[4].y,X[7].z,X[6].w);
+	tmp[3] = (uint4)(X[6].x,X[5].y,X[4].z,X[7].w);
+
+	X[4] = EndianSwapa(tmp[0]);
+	X[5] = EndianSwapb(tmp[1]);
+	X[6] = EndianSwapb(tmp[2]);
+	X[7] = EndianSwapb(tmp[3]);
 }
+
+__constant uint fixedWa[8] = {0x428a2f99,0xd807aa98,0xf59b89c2,0xb707775c,0xad87a3ea,0xc91b1417,0xe64fb6a2,0xe0a1adbe};
+__constant uint fixedWb[8] = {0xf1374491,0x12835b01,0x73924787,0x0468c23f,0xbcb1d3a3,0xc359dce1,0xe84d923a,0x7c728e11};
+__constant uint fixedWc[8] = {0xb5c0fbcf,0x243185be,0x23c6886e,0xe7e72b4c,0x7b993186,0xa83253a7,0xe93a5730,0x511c78e4};
+__constant uint fixedWd[8] = {0xe9b5dba5,0x550c7dc3,0xa42ca65c,0x49e1f1a2,0x562b9420,0x3b13c12d,0x09837686,0x315b45bd};
+__constant uint fixedWe[8] = {0x3956c25b,0x72be5d74,0x15ed3627,0x4b99c816,0xbff3ca0c,0x9d3d725d,0x078ff753,0xfca71413};
+__constant uint fixedWf[8] = {0x59f111f1,0x80deb1fe,0x4d6edcbf,0x926d1570,0xda4b0c23,0xd9031a84,0x29833341,0xea28f96a};
+__constant uint fixedWg[8] = {0x923f82a4,0x9bdc06a7,0xe28217fc,0xaa0fc072,0x6cd8711a,0xb1a03340,0xd5de0b7e,0x79703128};
+__constant uint fixedWh[8] = {0xab1c5ed5,0xc19bf794,0xef02488f,0xadb36e2c,0x8f337caa,0x16f58012,0x6948ccf4,0x4e1ef848};
 
 #define FOUND (0xFF)
 #define SETFOUND(Xnonce) output[output[FOUND]++] = Xnonce
@@ -562,69 +548,70 @@ const uint4 midstate0, const uint4 midstate16, const uint target)
 {
 	uint gid = get_global_id(0);
 	uint4 X[8];
-	uint4 tmp[4];
 	uint4 tstate0, tstate1, ostate0, ostate1, tmp0, tmp1;
 	uint4 data = (uint4)(input[4].x,input[4].y,input[4].z,gid);
 	uint4 pad0 = midstate0, pad1 = midstate16;
 
-	SHA256(&pad0,&pad1, data, (uint4)(K[84],0,0,0), (uint4)(0,0,0,0), (uint4)(0,0,0, K[85]), 0);
-	SHA256(&ostate0,&ostate1, pad0^ K[82], pad1^ K[82], K[82], K[82], 1);
-	SHA256(&tstate0,&tstate1, pad0^ K[83], pad1^ K[83], K[83], K[83], 1);
+	SHA256(&pad0,&pad1, data, (uint4)(K[84],0,0,0), (uint4)(0,0,0,0), (uint4)(0,0,0, K[85]), 1);
+	SHA256(&ostate0,&ostate1, pad0^ K[82], pad1^ K[82], K[82], K[82], 0);
+	SHA256(&tstate0,&tstate1, pad0^ K[83], pad1^ K[83], K[83], K[83], 0);
 
 	tmp0 = tstate0;
 	tmp1 = tstate1;
-	SHA256(&tstate0, &tstate1, input[0],input[1],input[2],input[3], 0);
+	SHA256(&tstate0, &tstate1, input[0],input[1],input[2],input[3], 1);
 
-	for (uint i=0; i<4; i++){
+	for (uint i=0; i<4; i++)
+	{
 		pad0 = tstate0;
 		pad1 = tstate1;
 		X[(i<<1) ] = ostate0;
 		X[(i<<1)+1] = ostate1;
 
-		SHA256(&pad0, &pad1, data, (uint4)(i+1,K[84],0,0), (uint4)(0,0,0,0), (uint4)(0,0,0, K[86]), 0);
-		SHA256(X+(i<<1),X+(i<<1)+1, pad0, pad1, (uint4)(K[84], 0U, 0U, 0U), (uint4)(0U, 0U, 0U, K[87]), 0);
+		SHA256(&pad0, &pad1, data, (uint4)(i+1,K[84],0,0), (uint4)(0,0,0,0), (uint4)(0,0,0, K[86]), 1);
+		SHA256(X+(i<<1),X+(i<<1)+1, pad0, pad1, (uint4)(K[84], 0U, 0U, 0U), (uint4)(0U, 0U, 0U, K[87]), 1);
 	}
-
-	tmp[0] = (uint4)(X[1].x,X[2].y,X[3].z,X[0].w);
-	tmp[1] = (uint4)(X[2].x,X[3].y,X[0].z,X[1].w);
-	tmp[2] = (uint4)(X[3].x,X[0].y,X[1].z,X[2].w);
-	tmp[3] = (uint4)(X[0].x,X[1].y,X[2].z,X[3].w);
-
-	for(uint i=0; i<4; ++i)
-		X[i] = EndianSwap(tmp[i]);
-
-	tmp[0] = (uint4)(X[5].x,X[6].y,X[7].z,X[4].w);
-	tmp[1] = (uint4)(X[6].x,X[7].y,X[4].z,X[5].w);
-	tmp[2] = (uint4)(X[7].x,X[4].y,X[5].z,X[6].w);
-	tmp[3] = (uint4)(X[4].x,X[5].y,X[6].z,X[7].w);
-
-	for(uint i=0; i<4; ++i)
-		X[i+4] = EndianSwap(tmp[i]);
 
 	scrypt_core(X,padcache);
 
-	tmp[0] = (uint4)(X[3].x,X[2].y,X[1].z,X[0].w);
-	tmp[1] = (uint4)(X[0].x,X[3].y,X[2].z,X[1].w);
-	tmp[2] = (uint4)(X[1].x,X[0].y,X[3].z,X[2].w);
-	tmp[3] = (uint4)(X[2].x,X[1].y,X[0].z,X[3].w);
+	SHA256(&tmp0,&tmp1, X[0], X[1], X[2], X[3], 1);
+	SHA256(&tmp0,&tmp1, X[4], X[5], X[6], X[7], 1);
 
-	for(uint i=0; i<4; ++i)
-		X[i] = EndianSwap(tmp[i]);
+	tstate0 = tmp0;
+	tstate1 = tmp1;
+#define A tstate0.x
+#define B tstate0.y
+#define C tstate0.z
+#define D tstate0.w
+#define E tstate1.x
+#define F tstate1.y
+#define G tstate1.z
+#define H tstate1.w
 
-	tmp[0] = (uint4)(X[7].x,X[6].y,X[5].z,X[4].w);
-	tmp[1] = (uint4)(X[4].x,X[7].y,X[6].z,X[5].w);
-	tmp[2] = (uint4)(X[5].x,X[4].y,X[7].z,X[6].w);
-	tmp[3] = (uint4)(X[6].x,X[5].y,X[4].z,X[7].w);
+	for(uint i=0; i<8; i++){
+		RND(A,B,C,D,E,F,G,H, fixedWa[i]);
+		RND(H,A,B,C,D,E,F,G, fixedWb[i]);
+		RND(G,H,A,B,C,D,E,F, fixedWc[i]);
+		RND(F,G,H,A,B,C,D,E, fixedWd[i]);
+		RND(E,F,G,H,A,B,C,D, fixedWe[i]);
+		RND(D,E,F,G,H,A,B,C, fixedWf[i]);
+		RND(C,D,E,F,G,H,A,B, fixedWg[i]);
+		RND(B,C,D,E,F,G,H,A, fixedWh[i]);
+	}
 
-	for(uint i=0; i<4; ++i)
-		X[i+4] = EndianSwap(tmp[i]);
+#undef A
+#undef B
+#undef C
+#undef D
+#undef E
+#undef F
+#undef G
+#undef H
+	tmp0 += tstate0;
+	tmp1 += tstate1;
 
-	SHA256(&tmp0,&tmp1, X[0], X[1], X[2], X[3], 0);
-	SHA256(&tmp0,&tmp1, X[4], X[5], X[6], X[7], 0);
-	SHA256_fixed(&tmp0,&tmp1);
-	SHA256(&ostate0,&ostate1, tmp0, tmp1, (uint4)(K[84], 0U, 0U, 0U), (uint4)(0U, 0U, 0U, K[87]), 0);
+	SHA256(&ostate0,&ostate1, tmp0, tmp1, (uint4)(K[84], 0U, 0U, 0U), (uint4)(0U, 0U, 0U, K[87]), 1);
 
-	bool result = (EndianSwap(ostate1.w) <= target);
+	bool result = (EndianSwapa(ostate1.w) <= target);
 	if (result)
 		SETFOUND(gid);
 }
